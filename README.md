@@ -1,6 +1,6 @@
-Generates "quasi-constant" manifolds following the procedure from DOI:10.1063/5.0070488 
+Generates "quasi-constant" manifolds following the procedure from DOI:10.1063/5.0070488, 
 showing the relationship to the discrete degeneracies from DOI:10.1103/PhysRevLett.125.166001
-and the degenerate singularities of DOI:10.12688/openreseurope.14156.1
+and the degenerate singularities of DOI:10.12688/openreseurope.14156.1 .
 
 Uses a simple multi-layer perceptron to demonstrate _interpolative_ learning on the manifold.
 
