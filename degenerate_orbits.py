@@ -208,7 +208,7 @@ doubledonald = pos2struc(opt.x)
 # but it doesn't matter because we look for a "consistent" boris, and the only 
 # thing that would change is the position of the starting point of the orbit
 boris_family = {}
-for s in [0.5, 0.2, 0.1]:
+for s in [0.5, 0.3, 0.2, 0.1]:
     Hsoap = {
         'soap_type': 'PowerSpectrum',
         'interaction_cutoff': 2.5,

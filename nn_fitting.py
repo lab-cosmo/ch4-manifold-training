@@ -49,10 +49,10 @@ if not args.output_file.endswith('npz'):
 
 # In[4]:
 
-N_EPOCH = 20000
+N_EPOCH = 40000
 BATCH_SIZE = 4096
 DEVICE = 'cuda'
-LR_SCHEDULER_PATIENCE = 1000
+LR_SCHEDULER_PATIENCE = 200
 
 
 # In[5]:
@@ -107,7 +107,7 @@ frames_val = fix_structures(aseio.read(f'{args.input_path}/val.xyz', ':'))
 
 with open(f'{args.input_path}/quasiconstant-manifolds.pickle', 'rb') as f:
     all_manifolds = pickle.load(f)
-frames_manifold = all_manifolds[(1.0, "s0.2-n8-l8")]
+frames_manifold = all_manifolds[(1.0, "s0.3-n8-l8")]
 
 for struc in frames_manifold:
     mask_center_atoms_by_id(struc, [0])
@@ -121,7 +121,7 @@ Hsoap = {
     'interaction_cutoff': 2.5,
     'max_radial': 8,
     'max_angular': 8,
-    'gaussian_sigma_constant': 0.2,
+    'gaussian_sigma_constant': 0.3,
     'gaussian_sigma_type': 'Constant',
     'cutoff_smooth_width': 0.0,
     'radial_basis': 'GTO',
@@ -267,11 +267,10 @@ def get_batched_predictions(model, data):
     return np.concatenate(all_predictions, axis = 0)
 
 optim = torch.optim.Adam(model.parameters())
-lr_scheduler = torch.optim.lr_scheduler.ReduceLROnPlateau(optim, factor = 0.5, patience = LR_SCHEDULER_PATIENCE)
+lr_scheduler = torch.optim.lr_scheduler.ReduceLROnPlateau(optim, factor = 0.8, patience = LR_SCHEDULER_PATIENCE)
 
 
-best_val_rmse = None
-best_train_rmse = None
+best_val_rmse = 1e100
 pbar = tqdm(range(N_EPOCH))
 for epoch_num in pbar:
     train_predictions = []
@@ -296,7 +295,7 @@ for epoch_num in pbar:
     '''val_manifold_predictions = get_batched_predictions(model, val_manifold)
     val_manifold_mae, val_manifold_rmse = get_stats(val_manifold_predictions, 
                                                     val_manifold['energies'].data.cpu().numpy())'''
-    
+
     pbar.set_description(f"val rmse: {val_rmse}; lr: {optim.param_groups[0]['lr']}")
     '''if epoch_num % 10 == 0:
         print("full train mae: ", train_mae)
@@ -307,37 +306,34 @@ for epoch_num in pbar:
         print("val manifold rmse: ", val_manifold_rmse)
         print("learning rate now", optim.param_groups[0]['lr'])'''
         
-    
+    if val_rmse<best_val_rmse:
+        best_val_rmse = val_rmse
+
+        # save stats for the best model
+        model.train(False)
+        train_predictions = get_batched_predictions(model, train)
+        val_predictions = get_batched_predictions(model, val)
+        if train_manifold['ps'].shape[0] > 0:
+            train_manifold_predictions = get_batched_predictions(model, train_manifold)
+        if val_manifold['ps'].shape[0] > 0:
+            val_manifold_predictions = get_batched_predictions(model, val_manifold)
+
+        output = {'train_predictions' : train_predictions,
+                  'val_predictions' : val_predictions,
+                  'train_ground_truth' : train['energies'].data.cpu().numpy(),
+                  'val_ground_truth' : val['energies'].data.cpu().numpy()}
+
+        if train_manifold['ps'].shape[0] > 0:
+            output['train_manifold_predictions']  = train_manifold_predictions
+            output['train_manifold_ground_truth'] = train_manifold['energies'].data.cpu().numpy()
+
+        if val_manifold['ps'].shape[0] > 0:
+            output['val_manifold_predictions'] = val_manifold_predictions
+            output['val_manifold_ground_truth'] = val_manifold['energies'].data.cpu().numpy()
+
+        np.savez(args.output_file, **output)
+
+
     lr_scheduler.step(train_rmse)
    
-
-
-# In[ ]:
-
-
-model.train(False)
-train_predictions = get_batched_predictions(model, train)
-val_predictions = get_batched_predictions(model, val)
-if train_manifold['ps'].shape[0] > 0:
-    train_manifold_predictions = get_batched_predictions(model, train_manifold)
-if val_manifold['ps'].shape[0] > 0:
-    val_manifold_predictions = get_batched_predictions(model, val_manifold)
-
-output = {'train_predictions' : train_predictions,
-          'val_predictions' : val_predictions,
-          'train_ground_truth' : train['energies'].data.cpu().numpy(),
-          'val_ground_truth' : val['energies'].data.cpu().numpy()}
-
-if train_manifold['ps'].shape[0] > 0:
-    output['train_manifold_predictions']  = train_manifold_predictions
-    output['train_manifold_ground_truth'] = train_manifold['energies'].data.cpu().numpy()
-    
-if val_manifold['ps'].shape[0] > 0:
-    output['val_manifold_predictions'] = val_manifold_predictions
-    output['val_manifold_ground_truth'] = val_manifold['energies'].data.cpu().numpy()
-
-np.savez(args.output_file, **output)
-
-
-
 
